@@ -1,5 +1,6 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useConversation } from '@11labs/react';
+import { useConversation, Role } from '@11labs/react';
 
 interface ElevenLabsVoiceContextProps {
   speak: (text: string) => void;
@@ -13,11 +14,6 @@ interface ElevenLabsVoiceContextProps {
   isMuted: boolean;
   initialize: (apiKey: string, onTranscript?: (text: string) => void) => Promise<void>;
   isInitialized: boolean;
-}
-
-interface ConversationProps {
-  message: string;
-  source: 'user' | 'agent' | 'system';
 }
 
 const ElevenLabsVoiceContext = createContext<ElevenLabsVoiceContextProps | undefined>(undefined);
@@ -34,7 +30,7 @@ export const ElevenLabsVoiceProvider: React.FC<{ children: React.ReactNode }> = 
   const [fallbackService, setFallbackService] = useState<any | null>(null);
 
   const conversation = useConversation({
-    onMessage: (props: { message: string; source: 'user' | 'agent' | 'system' }) => {
+    onMessage: (props: { message: string; source: Role }) => {
       if (props.source === 'user') {
         setLastTranscript(props.message);
         if (onTranscriptCallback) {
