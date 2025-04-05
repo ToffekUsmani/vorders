@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useConversation } from '@11labs/react';
 
@@ -16,9 +15,9 @@ interface ElevenLabsVoiceContextProps {
   isInitialized: boolean;
 }
 
-interface ConversationMessage {
-  role: string;
-  content: string;
+interface ConversationProps {
+  message: string;
+  source: 'user' | 'agent' | 'system';
 }
 
 const ElevenLabsVoiceContext = createContext<ElevenLabsVoiceContextProps | undefined>(undefined);
@@ -34,13 +33,12 @@ export const ElevenLabsVoiceProvider: React.FC<{ children: React.ReactNode }> = 
   const [onTranscriptCallback, setOnTranscriptCallback] = useState<((text: string) => void) | undefined>(undefined);
   const [fallbackService, setFallbackService] = useState<any | null>(null);
 
-  // Initialize ElevenLabs conversation
   const conversation = useConversation({
-    onMessage: (message: ConversationMessage) => {
-      if (message.role === 'user') {
-        setLastTranscript(message.content);
+    onMessage: (props: { message: string; source: 'user' | 'agent' | 'system' }) => {
+      if (props.source === 'user') {
+        setLastTranscript(props.message);
         if (onTranscriptCallback) {
-          onTranscriptCallback(message.content);
+          onTranscriptCallback(props.message);
         }
       }
     },
@@ -53,16 +51,13 @@ export const ElevenLabsVoiceProvider: React.FC<{ children: React.ReactNode }> = 
     onError: (error) => {
       console.error('ElevenLabs error:', error);
       setHasError(true);
-      // Fall back to Web Speech API if available
       if (fallbackService) {
         fallbackService.startListening();
       }
     }
   });
 
-  // Initialize fallback Web Speech API service
   useEffect(() => {
-    // Import dynamically to avoid issues if Speech API isn't available
     import('./VoiceService').then((VoiceServiceModule) => {
       const service = new VoiceServiceModule.default({
         onResult: (transcript: string) => {
@@ -80,8 +75,7 @@ export const ElevenLabsVoiceProvider: React.FC<{ children: React.ReactNode }> = 
       setFallbackService(service);
     });
   }, [onTranscriptCallback]);
-  
-  // Check if speech synthesis is speaking
+
   useEffect(() => {
     const checkSpeaking = () => {
       setIsSpeaking(window.speechSynthesis.speaking);
@@ -93,7 +87,6 @@ export const ElevenLabsVoiceProvider: React.FC<{ children: React.ReactNode }> = 
 
   const initialize = async (key: string, onTranscript?: (text: string) => void) => {
     try {
-      // Store API key
       localStorage.setItem('elevenLabsApiKey', key);
       setApiKey(key);
       
@@ -101,8 +94,6 @@ export const ElevenLabsVoiceProvider: React.FC<{ children: React.ReactNode }> = 
         setOnTranscriptCallback(() => onTranscript);
       }
       
-      // For ElevenLabs API initialization, we would need to set up the agent
-      // This is a placeholder for the actual initialization
       setIsInitialized(true);
       return Promise.resolve();
     } catch (error) {
@@ -115,29 +106,21 @@ export const ElevenLabsVoiceProvider: React.FC<{ children: React.ReactNode }> = 
   const speak = (text: string) => {
     if (isMuted) return;
     
-    // If ElevenLabs is initialized and working, use it
     if (isInitialized && apiKey && !hasError) {
-      // ElevenLabs speech synthesis would go here
-      // This is a placeholder for the actual implementation
       setIsSpeaking(true);
       
-      // For now, fall back to Web Speech API
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.onend = () => setIsSpeaking(false);
       window.speechSynthesis.speak(utterance);
     } else if (fallbackService) {
-      // Fall back to Web Speech API
       fallbackService.speak(text);
     }
   };
 
   const startListening = () => {
     if (isInitialized && apiKey && !hasError) {
-      // Start ElevenLabs conversation
-      // This would be the actual implementation
       setIsListening(true);
     } else if (fallbackService) {
-      // Fall back to Web Speech API
       fallbackService.startListening();
       setIsListening(true);
     }
@@ -145,11 +128,8 @@ export const ElevenLabsVoiceProvider: React.FC<{ children: React.ReactNode }> = 
 
   const stopListening = () => {
     if (isInitialized && apiKey && !hasError) {
-      // Stop ElevenLabs conversation
-      // This would be the actual implementation
       setIsListening(false);
     } else if (fallbackService) {
-      // Fall back to Web Speech API
       fallbackService.stopListening();
       setIsListening(false);
     }
@@ -159,7 +139,7 @@ export const ElevenLabsVoiceProvider: React.FC<{ children: React.ReactNode }> = 
     if (isMuted) {
       setIsMuted(false);
     } else {
-      window.speechSynthesis.cancel(); // Stop any current speech
+      window.speechSynthesis.cancel();
       setIsMuted(true);
     }
     
