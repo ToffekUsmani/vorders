@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Mic, Loader2, CreditCard, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import VoiceService from '@/services/VoiceService';
+
+interface CartItem {
+  product: {
+    id: number;
+    name: string;
+    price: number;
+    image: string;
+    category: string;
+    description: string;
+  };
+  quantity: number;
+}
 
 const Checkout = () => {
   const [cardNumber, setCardNumber] = useState('');
@@ -19,10 +31,28 @@ const Checkout = () => {
   const [isSuccess, setIsSuccess] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [currentField, setCurrentField] = useState<'cardNumber' | 'cardName' | 'expiryDate' | 'cvv' | 'address' | null>(null);
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const voiceServiceRef = useRef<VoiceService | null>(null);
+  
+  // Get cart from local storage or location state
+  useEffect(() => {
+    const storedCart = localStorage.getItem('cart');
+    if (storedCart) {
+      setCartItems(JSON.parse(storedCart));
+    } else if (location.state && location.state.cartItems) {
+      setCartItems(location.state.cartItems);
+    }
+  }, [location]);
+  
+  // Calculate totals based on cart
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  const shipping = subtotal > 35 ? 0 : 5.00;
+  const tax = subtotal * 0.08;
+  const total = subtotal + shipping + tax;
   
   useEffect(() => {
     // Initialize voice service
@@ -188,6 +218,9 @@ const Checkout = () => {
       
       setIsSuccess(true);
       speak("Payment successful! Your order will be delivered soon. Thank you for shopping with Voice Grocer Aid.");
+      
+      // Clear cart from localStorage
+      localStorage.removeItem('cart');
       
       // Redirect after success message
       setTimeout(() => {
@@ -387,25 +420,50 @@ const Checkout = () => {
           {/* Order Summary */}
           <div className="bg-white p-6 rounded-lg shadow-md">
             <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
-            {/* This would typically be populated with items from the cart */}
-            <div className="space-y-4">
-              <div className="flex justify-between pb-4 border-b">
-                <span className="text-muted-foreground">Subtotal</span>
-                <span>$45.95</span>
+            {cartItems.length > 0 ? (
+              <div className="space-y-4">
+                {/* List cart items */}
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {cartItems.map((item) => (
+                    <div key={item.product.id} className="flex justify-between text-sm border-b pb-2">
+                      <span>{item.quantity} × {item.product.name}</span>
+                      <span>${(item.product.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Order totals */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Shipping</span>
+                    <span>{shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tax</span>
+                    <span>${tax.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold pt-2 border-t">
+                    <span>Total</span>
+                    <span>${total.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between pb-4 border-b">
-                <span className="text-muted-foreground">Shipping</span>
-                <span>$4.99</span>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground">Your cart is empty</p>
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate('/')}
+                  className="mt-4"
+                >
+                  Return to Shopping
+                </Button>
               </div>
-              <div className="flex justify-between pb-4 border-b">
-                <span className="text-muted-foreground">Tax</span>
-                <span>$5.12</span>
-              </div>
-              <div className="flex justify-between font-bold">
-                <span>Total</span>
-                <span>$56.06</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
         

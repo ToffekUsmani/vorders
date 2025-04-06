@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { toast } from "sonner";
 import { useNavigate, Link } from 'react-router-dom';
@@ -39,7 +38,21 @@ const Index = () => {
   const voiceServiceRef = useRef<VoiceService | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize voice service
+  useEffect(() => {
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (e) {
+        console.error("Error loading cart from localStorage", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
+
   useEffect(() => {
     voiceServiceRef.current = new VoiceService({
       onResult: handleVoiceResult,
@@ -71,14 +84,12 @@ const Index = () => {
       }
     });
 
-    // Auto-start the voice assistant
     setTimeout(() => {
       if (voiceServiceRef.current) {
         voiceServiceRef.current.startListening();
         setIsListening(true);
       }
       
-      // Welcome message
       speak(user 
         ? `Welcome back ${user.name}. You can say 'help' to learn what I can do.` 
         : "Welcome to Voice Grocer Aid. I'll help you shop with voice commands. Say 'help' to learn what I can do."
@@ -92,7 +103,6 @@ const Index = () => {
     };
   }, [user]);
 
-  // Load high contrast preference from localStorage
   useEffect(() => {
     const savedContrast = localStorage.getItem('highContrast');
     if (savedContrast === 'true') {
@@ -101,7 +111,6 @@ const Index = () => {
     }
   }, []);
 
-  // Apply high contrast mode to the document
   useEffect(() => {
     if (isHighContrast) {
       document.documentElement.classList.add('high-contrast');
@@ -112,7 +121,6 @@ const Index = () => {
     }
   }, [isHighContrast]);
 
-  // Check if voice service is speaking
   useEffect(() => {
     const checkSpeaking = () => {
       if (voiceServiceRef.current) {
@@ -223,11 +231,10 @@ const Index = () => {
     }
     
     speak('Taking you to checkout.');
-    navigate('/checkout');
+    navigate('/checkout', { state: { cartItems: cart } });
   };
 
   const handleVoiceResult = (transcript: string) => {
-    // Reset error state if we get a successful result
     if (hasError) {
       setHasError(false);
       setErrorRetryCount(0);
@@ -236,7 +243,6 @@ const Index = () => {
     setLastCommand(transcript);
     console.log('Voice command received:', transcript);
     
-    // Handle auth-related commands
     const lowerTranscript = transcript.toLowerCase();
     
     if (lowerTranscript.includes('login') || lowerTranscript.includes('sign in')) {
@@ -267,7 +273,6 @@ const Index = () => {
       return;
     }
     
-    // Handle shopping cart commands
     if (lowerTranscript.includes('open cart') || lowerTranscript.includes('show cart') || lowerTranscript.includes('view cart')) {
       setIsCartOpen(true);
       speak('Opening your shopping cart.');
@@ -280,14 +285,11 @@ const Index = () => {
       return;
     }
     
-    // Process shopping commands
     const result = processCommand(transcript, products);
     console.log('Command result:', result);
     
-    // Provide audio feedback
     speak(result.response);
     
-    // Take action based on the command type
     switch (result.action) {
       case 'search':
         if (result.data?.query) {
@@ -319,13 +321,11 @@ const Index = () => {
         if (result.data?.contrastMode !== undefined) {
           setIsHighContrast(result.data.contrastMode);
         } else {
-          // Toggle if not specified
           setIsHighContrast(prev => !prev);
         }
         break;
         
       case 'help':
-        // Help is handled by the voice response
         break;
     }
   };

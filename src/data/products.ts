@@ -4,7 +4,7 @@ import { Product } from '../components/ProductCard';
 export const products: Product[] = [
   {
     id: 1,
-    name: 'Fresh Organic Apples',
+    name: 'Apples',
     price: 2.99,
     image: 'https://images.unsplash.com/photo-1567306226416-28f0efdc88ce',
     category: 'fruits',
@@ -12,7 +12,7 @@ export const products: Product[] = [
   },
   {
     id: 2,
-    name: 'Whole Wheat Bread',
+    name: 'Bread',
     price: 3.49,
     image: 'https://images.unsplash.com/photo-1565711561500-49678a10a63f',
     category: 'bakery',
@@ -20,7 +20,7 @@ export const products: Product[] = [
   },
   {
     id: 3,
-    name: 'Free Range Eggs',
+    name: 'Eggs',
     price: 4.99,
     image: 'https://images.unsplash.com/photo-1518569656558-1f25e69d93d7',
     category: 'dairy',
@@ -28,7 +28,7 @@ export const products: Product[] = [
   },
   {
     id: 4,
-    name: 'Organic Milk',
+    name: 'Milk',
     price: 3.79,
     image: 'https://images.unsplash.com/photo-1563636619-e9143da7973b',
     category: 'dairy',
@@ -36,7 +36,7 @@ export const products: Product[] = [
   },
   {
     id: 5,
-    name: 'Ripe Bananas',
+    name: 'Bananas',
     price: 1.99,
     image: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e',
     category: 'fruits',
@@ -44,7 +44,7 @@ export const products: Product[] = [
   },
   {
     id: 6,
-    name: 'Fresh Tomatoes',
+    name: 'Tomatoes',
     price: 2.49,
     image: 'https://images.unsplash.com/photo-1518977822534-7049a61ee0c2',
     category: 'vegetables',
@@ -52,7 +52,7 @@ export const products: Product[] = [
   },
   {
     id: 7,
-    name: 'Greek Yogurt',
+    name: 'Yogurt',
     price: 5.99,
     image: 'https://images.unsplash.com/photo-1488477181946-6428a0291777',
     category: 'dairy',
@@ -60,7 +60,7 @@ export const products: Product[] = [
   },
   {
     id: 8,
-    name: 'Organic Chicken Breast',
+    name: 'Chicken',
     price: 9.99,
     image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791',
     category: 'meat',
@@ -68,7 +68,7 @@ export const products: Product[] = [
   },
   {
     id: 9,
-    name: 'Fresh Atlantic Salmon',
+    name: 'Salmon',
     price: 12.99,
     image: 'https://images.unsplash.com/photo-1599084993091-1cb5c0721cc6',
     category: 'seafood',
@@ -76,7 +76,7 @@ export const products: Product[] = [
   },
   {
     id: 10,
-    name: 'Baby Spinach',
+    name: 'Spinach',
     price: 3.29,
     image: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb',
     category: 'vegetables',
@@ -84,7 +84,7 @@ export const products: Product[] = [
   },
   {
     id: 11,
-    name: 'Sweet Potatoes',
+    name: 'Potatoes',
     price: 2.79,
     image: 'https://images.unsplash.com/photo-1596097757671-9e8b4e8c6ca4',
     category: 'vegetables',
@@ -100,7 +100,7 @@ export const products: Product[] = [
   },
   {
     id: 13,
-    name: 'Brown Rice',
+    name: 'Rice',
     price: 3.99,
     image: 'https://images.unsplash.com/photo-1586201375761-83865001e31c',
     category: 'grains',
@@ -108,7 +108,7 @@ export const products: Product[] = [
   },
   {
     id: 14,
-    name: 'Ground Beef',
+    name: 'Beef',
     price: 7.99,
     image: 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976',
     category: 'meat',
@@ -140,7 +140,7 @@ export const products: Product[] = [
   },
   {
     id: 18,
-    name: 'Cheddar Cheese',
+    name: 'Cheese',
     price: 5.99,
     image: 'https://images.unsplash.com/photo-1618164436241-4473940d1f5c',
     category: 'dairy',
