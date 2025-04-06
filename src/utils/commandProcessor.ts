@@ -4,12 +4,13 @@ import { Product } from '../components/ProductCard';
 
 export interface CommandResult {
   command: string;
-  action: 'search' | 'add' | 'remove' | 'checkout' | 'help' | 'unknown';
+  action: 'search' | 'add' | 'remove' | 'checkout' | 'help' | 'unknown' | 'contrast';
   data?: {
     query?: string;
     product?: Product;
     quantity?: number;
     category?: string;
+    contrastMode?: boolean;
   };
   response: string;
 }
@@ -19,6 +20,23 @@ export const processCommand = (
   products: Product[]
 ): CommandResult => {
   const normalizedCommand = command.toLowerCase().trim();
+
+  // Contrast mode toggle
+  if (normalizedCommand.includes('high contrast') || 
+      normalizedCommand.includes('contrast mode') || 
+      normalizedCommand.includes('toggle contrast')) {
+    
+    const enableContrast = !normalizedCommand.includes('off') && 
+                           !normalizedCommand.includes('disable') && 
+                           !normalizedCommand.includes('remove');
+    
+    return {
+      command: normalizedCommand,
+      action: 'contrast',
+      data: { contrastMode: enableContrast },
+      response: enableContrast ? "High contrast mode enabled." : "High contrast mode disabled."
+    };
+  }
 
   // Search commands
   if (normalizedCommand.includes('search for') || normalizedCommand.includes('find') || normalizedCommand.includes('look for')) {
@@ -58,12 +76,23 @@ export const processCommand = (
     }
   }
 
+  // Extract quantity and product name more effectively
+  const quantityMatch = normalizedCommand.match(/(\d+)\s+([a-z\s]+)(?:s|\b)/i);
+  let quantity = 1;
+  let productNameHint = '';
+  
+  if (quantityMatch) {
+    quantity = parseInt(quantityMatch[1], 10);
+    productNameHint = quantityMatch[2].trim();
+  }
+
   // Add to cart commands
   if (normalizedCommand.includes('add') && 
-     (normalizedCommand.includes('cart') || normalizedCommand.includes('basket'))) {
+     (normalizedCommand.includes('cart') || normalizedCommand.includes('basket') || 
+      !normalizedCommand.includes('cart') && !normalizedCommand.includes('basket'))) {
     
     // Try to extract product name and quantity
-    const productInfo = extractProductInfo(normalizedCommand, products);
+    const productInfo = extractProductInfo(normalizedCommand, products, productNameHint, quantity);
     
     if (productInfo.product) {
       return {
@@ -90,9 +119,10 @@ export const processCommand = (
 
   // Remove from cart commands
   if ((normalizedCommand.includes('remove') || normalizedCommand.includes('delete')) && 
-     (normalizedCommand.includes('cart') || normalizedCommand.includes('basket'))) {
+     (normalizedCommand.includes('cart') || normalizedCommand.includes('basket') || 
+      !normalizedCommand.includes('cart') && !normalizedCommand.includes('basket'))) {
     
-    const productInfo = extractProductInfo(normalizedCommand, products);
+    const productInfo = extractProductInfo(normalizedCommand, products, productNameHint, quantity);
     
     if (productInfo.product) {
       return {
@@ -119,16 +149,17 @@ export const processCommand = (
     };
   }
 
-  // Help commands
-  if (normalizedCommand.includes('help') || normalizedCommand.includes('what can you do')) {
+  // Help commands - simplified to just "help"
+  if (normalizedCommand.includes('help')) {
     return {
       command: normalizedCommand,
       action: 'help',
       response: `You can say things like: 
         "Search for apples", 
         "Show me dairy products", 
-        "Add milk to my cart", 
-        "Remove bananas from my cart", or 
+        "Add 3 apples to my cart", 
+        "Remove bananas from my cart",
+        "Toggle high contrast mode", or
         "Checkout" to complete your purchase.`
     };
   }
@@ -159,13 +190,23 @@ function extractSearchQuery(command: string): string | null {
   return null;
 }
 
-function extractProductInfo(command: string, availableProducts: Product[]): { product?: Product, quantity?: number } {
+function extractProductInfo(
+  command: string, 
+  availableProducts: Product[], 
+  productNameHint: string = '',
+  detectedQuantity: number = 1
+): { product?: Product, quantity?: number } {
   // Common words to filter out
   const fillerWords = ['to', 'from', 'the', 'my', 'cart', 'basket', 'add', 'remove', 'delete', 'please'];
   
-  // Extract quantity
-  const quantityMatch = command.match(/(\d+)/);
-  const quantity = quantityMatch ? parseInt(quantityMatch[1]) : 1;
+  // Extract quantity if not already provided
+  let quantity = detectedQuantity;
+  if (quantity === 1) {
+    const quantityMatch = command.match(/(\d+)/);
+    if (quantityMatch) {
+      quantity = parseInt(quantityMatch[1], 10);
+    }
+  }
   
   // Clean up command to extract product name
   let cleanedCommand = command.toLowerCase();
@@ -173,17 +214,51 @@ function extractProductInfo(command: string, availableProducts: Product[]): { pr
     cleanedCommand = cleanedCommand.replace(new RegExp(`\\b${word}\\b`, 'gi'), '');
   });
   
+  // Remove numbers
   cleanedCommand = cleanedCommand.replace(/\d+/, '').trim();
   
-  // Check for a match with available products
+  // If we have a product name hint, try to use that first
+  if (productNameHint) {
+    const singularName = productNameHint.endsWith('s') 
+      ? productNameHint.slice(0, -1) 
+      : productNameHint;
+    
+    // Try to find product by name hint first
+    for (const product of availableProducts) {
+      const productName = product.name.toLowerCase();
+      
+      if (productName === productNameHint || 
+          productName === singularName || 
+          productName.includes(productNameHint) || 
+          productName.includes(singularName)) {
+        return { product, quantity };
+      }
+    }
+  }
+  
+  // Check for fruit/vegetable singular/plural matching
   for (const product of availableProducts) {
     const productName = product.name.toLowerCase();
-    // Check for exact product name or if the command contains the product name
-    if (cleanedCommand.includes(productName) || 
-        product.category.toLowerCase().includes(cleanedCommand) ||
-        // Handle plurals and singulars
-        (productName.endsWith('s') && cleanedCommand.includes(productName.slice(0, -1))) ||
-        (cleanedCommand.includes(productName + 's'))) {
+    
+    // Handle common food items that might be referred to differently
+    const nameVariations = [
+      productName,
+      productName.endsWith('s') ? productName.slice(0, -1) : productName + 's', // Handle plural/singular
+      productName === 'apples' ? 'apple' : (productName === 'apple' ? 'apples' : productName),
+      productName === 'bananas' ? 'banana' : (productName === 'banana' ? 'bananas' : productName),
+      productName === 'oranges' ? 'orange' : (productName === 'orange' ? 'oranges' : productName),
+    ];
+    
+    // Check if any variation of the product name is in the cleaned command
+    for (const variation of nameVariations) {
+      if (cleanedCommand.includes(variation)) {
+        return { product, quantity };
+      }
+    }
+    
+    // Also check if category is mentioned (e.g., "add fruit")
+    if (product.category.toLowerCase() === cleanedCommand.trim() ||
+        cleanedCommand.includes(product.category.toLowerCase())) {
       return { product, quantity };
     }
   }

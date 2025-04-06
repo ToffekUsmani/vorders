@@ -47,6 +47,30 @@
     font-family: 'Inter', sans-serif;
   }
 
+  .high-contrast {
+    --background: 0 0% 0%; /* Black */
+    --foreground: 60 100% 50%; /* Yellow */
+    --border: 60 100% 50%; /* Yellow */
+    --ring: 60 100% 50%; /* Yellow */
+    
+    /* Override other variables for high contrast */
+    --primary: 60 100% 50%; /* Yellow */
+    --primary-foreground: 0 0% 0%; /* Black */
+    --secondary: 60 100% 50%; /* Yellow */
+    --secondary-foreground: 0 0% 0%; /* Black */
+    --muted: 0 0% 20%; /* Dark Gray */
+    --muted-foreground: 60 100% 50%; /* Yellow */
+    --input: 0 0% 0%; /* Black */
+  }
+
+  .high-contrast button:focus {
+    @apply ring-2 ring-yellow-300 outline-none;
+  }
+
+  .high-contrast input:focus {
+    @apply ring-2 ring-yellow-300 outline-none border-yellow-300;
+  }
+
   .voice-btn {
     @apply rounded-full bg-primary text-white p-4 shadow-lg hover:bg-primary/90 transition-colors;
   }
@@ -101,6 +125,36 @@
     content: '';
     @apply absolute w-5/6 h-5/6 rounded-full bg-red-600;
     animation: pulse-dot 1.5s cubic-bezier(0.455, 0.03, 0.515, 0.955) -0.4s infinite;
+  }
+
+  /* High contrast mode overrides for components */
+  .high-contrast .product-card {
+    @apply bg-black border-2 border-yellow-300 rounded-xl;
+  }
+
+  .high-contrast .product-card button {
+    @apply border-yellow-300 text-yellow-300 hover:bg-yellow-300/20;
+  }
+  
+  .high-contrast .product-card h3,
+  .high-contrast .product-card p {
+    @apply text-yellow-300;
+  }
+
+  /* Improved animation performance */
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-bounce-subtle {
+      animation: bounce 2s ease-in-out infinite;
+    }
+    
+    @keyframes bounce {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-5px);
+      }
+    }
   }
 
   /* High contrast mode */

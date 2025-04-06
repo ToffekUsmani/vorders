@@ -13,10 +13,12 @@ class VoiceService {
   private autoRestart: boolean = true;
   private isListening: boolean = false;
   private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 10; // Increased from 5 to 10
+  private maxReconnectAttempts: number = 10;
   private reconnectTimeout: number | null = null;
   private utteranceQueue: SpeechSynthesisUtterance[] = [];
   private currentVoice: SpeechSynthesisVoice | null = null;
+  private lastProcessedResult: string = '';
+  private resultTimer: number | null = null;
 
   constructor(config: VoiceServiceConfig) {
     this.config = config;
@@ -26,15 +28,16 @@ class VoiceService {
   }
 
   private loadOptimalVoice() {
-    // Wait for voices to be loaded
-    if (this.synthesis.onvoiceschanged !== undefined) {
-      this.synthesis.onvoiceschanged = () => {
-        this.selectBestVoice();
-      };
-    } else {
-      // Fallback for browsers that don't support onvoiceschanged
-      setTimeout(() => this.selectBestVoice(), 1000);
+    // Load voices immediately if available
+    const voices = this.synthesis.getVoices();
+    if (voices.length > 0) {
+      this.selectBestVoice();
     }
+    
+    // Also set up the event for when voices are loaded asynchronously
+    this.synthesis.onvoiceschanged = () => {
+      this.selectBestVoice();
+    };
   }
 
   private selectBestVoice() {
@@ -70,13 +73,26 @@ class VoiceService {
     
     this.recognition.lang = 'en-US';
     this.recognition.continuous = true;
-    this.recognition.interimResults = true;
-    this.recognition.maxAlternatives = 3;
+    this.recognition.interimResults = false; // Only get final results for better performance
+    this.recognition.maxAlternatives = 2;
     
     this.recognition.onresult = (event) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
-      if (event.results[event.results.length - 1].isFinal) {
-        this.config.onResult(transcript);
+      
+      // Debounce results to avoid duplicate processing
+      if (transcript !== this.lastProcessedResult) {
+        this.lastProcessedResult = transcript;
+        
+        // Clear any existing timer
+        if (this.resultTimer !== null) {
+          clearTimeout(this.resultTimer);
+        }
+        
+        // Set a new timer to process the result
+        this.resultTimer = window.setTimeout(() => {
+          this.config.onResult(transcript);
+          this.resultTimer = null;
+        }, 300);
       }
     };
     
@@ -121,8 +137,8 @@ class VoiceService {
       clearTimeout(this.reconnectTimeout);
     }
     
-    // Exponential backoff for reconnection attempts
-    const delay = Math.min(1000 * (2 ** (this.reconnectAttempts - 1)), 10000);
+    // Use linear backoff instead of exponential for faster recovery
+    const delay = Math.min(1000 * this.reconnectAttempts, 5000);
     
     this.reconnectTimeout = window.setTimeout(() => {
       console.log(`Attempting to reconnect speech recognition (attempt ${this.reconnectAttempts})`);
@@ -137,25 +153,28 @@ class VoiceService {
     }
     
     try {
-      if (this.isListening) {
-        try {
-          this.recognition.stop();
-          setTimeout(() => {
-            this.recognition?.start();
-            this.isListening = true;
-          }, 100);
-        } catch (e) {
-          console.warn("Error stopping already running recognition", e);
-        }
-      } else {
-        this.recognition.start();
-        this.isListening = true;
+      // Always stop before starting to reset any existing session
+      try {
+        this.recognition.stop();
+      } catch (e) {
+        // Ignore errors when stopping - it might not be running
       }
       
-      this.autoRestart = true;
-      this.reconnectAttempts = 0;
+      // Small delay to ensure clean restart
+      setTimeout(() => {
+        try {
+          this.recognition?.start();
+          this.isListening = true;
+          this.autoRestart = true;
+          this.reconnectAttempts = 0;
+          this.lastProcessedResult = '';
+        } catch (e) {
+          console.error("Failed to start recognition:", e);
+          this.config.onError('Failed to start voice recognition. Please reload the page.');
+        }
+      }, 100);
     } catch (error) {
-      console.error("Failed to start recognition:", error);
+      console.error("Failed to manage recognition:", error);
       
       // Try to recover by re-initializing
       this.initRecognition();
@@ -175,6 +194,11 @@ class VoiceService {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
+    }
+    
+    if (this.resultTimer !== null) {
+      clearTimeout(this.resultTimer);
+      this.resultTimer = null;
     }
     
     if (this.recognition && this.isListening) {
@@ -204,7 +228,7 @@ class VoiceService {
       const utterance = new SpeechSynthesisUtterance(sentence);
       
       // Apply settings
-      utterance.rate = 0.95;  // Slightly slower for better clarity
+      utterance.rate = 1.1;  // Slightly faster for better responsiveness
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
       
@@ -230,8 +254,8 @@ class VoiceService {
     const utterance = this.utteranceQueue.shift()!;
     
     utterance.onend = () => {
-      // Process next utterance in queue
-      setTimeout(() => this.processUtteranceQueue(), 150);
+      // Process next utterance in queue with minimal delay
+      setTimeout(() => this.processUtteranceQueue(), 50);
     };
     
     utterance.onerror = (event) => {

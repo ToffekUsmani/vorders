@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Product } from './ProductCard';
 import { useElevenLabsVoice } from '@/services/ElevenLabsVoiceService';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 interface CartItem {
   product: Product;
@@ -32,6 +33,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
 }) => {
   const { speak } = useElevenLabsVoice();
   const navigate = useNavigate();
+  const isHighContrast = className?.includes('text-yellow-300');
   
   useEffect(() => {
     if (isOpen && items.length > 0) {
@@ -105,26 +107,38 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex justify-end">
-      <div className={`w-full max-w-md bg-white h-full overflow-y-auto ${className}`}>
-        <div className="p-4 border-b flex items-center justify-between bg-primary text-white">
+      <div className={cn(`w-full max-w-md h-full overflow-y-auto`, className)}>
+        <div className={cn(
+          "p-4 border-b flex items-center justify-between",
+          isHighContrast ? "bg-black text-yellow-300 border-yellow-300" : "bg-primary text-white"
+        )}>
           <h2 className="text-xl font-semibold flex items-center">
             <ShoppingBag className="mr-2" /> Shopping Cart
           </h2>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-white/20"
+            className={cn(
+              "p-1 rounded-full",
+              isHighContrast ? "hover:bg-yellow-300/20" : "hover:bg-white/20"
+            )}
             aria-label="Close cart"
           >
             <X />
           </button>
         </div>
         
-        <div className="p-4 border-b flex items-center justify-between bg-gray-100">
+        <div className={cn(
+          "p-4 border-b flex items-center justify-between",
+          isHighContrast ? "bg-black border-yellow-300" : "bg-gray-100"
+        )}>
           <Button
             variant="outline"
             size="sm"
             onClick={handleBackToHome}
-            className="flex items-center gap-1"
+            className={cn(
+              "flex items-center gap-1",
+              isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20"
+            )}
           >
             <Home size={16} />
             <span className="hidden sm:inline">Home</span>
@@ -134,7 +148,10 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="flex items-center gap-1"
+            className={cn(
+              "flex items-center gap-1",
+              isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20"
+            )}
           >
             <ArrowLeft size={16} />
             <span>Continue Shopping</span>
@@ -143,8 +160,17 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
         
         {items.length === 0 ? (
           <div className="p-4 text-center">
-            <p className="text-gray-500 mb-4">Your cart is empty</p>
-            <Button variant="outline" onClick={onClose}>
+            <p className={cn(
+              isHighContrast ? "text-yellow-300" : "text-gray-500",
+              "mb-4"
+            )}>Your cart is empty</p>
+            <Button 
+              variant="outline" 
+              onClick={onClose}
+              className={cn(
+                isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20"
+              )}
+            >
               Continue Shopping
             </Button>
           </div>
@@ -152,25 +178,45 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
           <>
             <div className="p-4 space-y-4">
               {items.map((item) => (
-                <div key={item.product.id} className="border rounded-lg p-4 shadow-sm">
+                <div 
+                  key={item.product.id} 
+                  className={cn(
+                    "p-4 shadow-sm",
+                    isHighContrast 
+                      ? "border border-yellow-300 rounded-lg" 
+                      : "border rounded-lg"
+                  )}
+                >
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center">
                       <img
                         src={item.product.image}
                         alt={item.product.name}
-                        className="w-16 h-16 object-cover rounded mr-4"
+                        className={cn(
+                          "w-16 h-16 object-cover mr-4",
+                          isHighContrast ? "border border-yellow-300" : "rounded"
+                        )}
                       />
                       <div>
                         <h3 className="font-medium">{item.product.name}</h3>
-                        <p className="text-gray-600 text-sm">${item.product.price.toFixed(2)} each</p>
-                        <p className="text-primary font-medium">Total: ${(item.product.price * item.quantity).toFixed(2)}</p>
+                        <p className={cn(
+                          isHighContrast ? "text-yellow-300/80" : "text-gray-600",
+                          "text-sm"
+                        )}>${item.product.price.toFixed(2)} each</p>
+                        <p className={cn(
+                          isHighContrast ? "text-yellow-300" : "text-primary",
+                          "font-medium"
+                        )}>Total: ${(item.product.price * item.quantity).toFixed(2)}</p>
                       </div>
                     </div>
                     
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="text-red-500 hover:text-red-700 p-1 h-auto"
+                      className={cn(
+                        "p-1 h-auto",
+                        isHighContrast ? "text-yellow-300 hover:text-yellow-500 hover:bg-transparent" : "text-red-500 hover:text-red-700"
+                      )}
                       onClick={() => handleRemoveCompleteItem(item.product)}
                       aria-label={`Remove all ${item.product.name}`}
                     >
@@ -178,11 +224,19 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                     </Button>
                   </div>
                   
-                  <div className="flex items-center justify-between border-t pt-3">
+                  <div className={cn(
+                    "flex items-center justify-between pt-3",
+                    isHighContrast ? "border-t border-yellow-300/50" : "border-t"
+                  )}>
                     <div className="flex items-center space-x-2">
                       <Button
                         onClick={() => handleVoiceAction('remove', item.product)}
-                        className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 h-8 w-8"
+                        className={cn(
+                          "p-1 rounded-full h-8 w-8",
+                          isHighContrast 
+                            ? "bg-black border border-yellow-300 text-yellow-300 hover:bg-yellow-300/20" 
+                            : "bg-gray-100 hover:bg-gray-200"
+                        )}
                         aria-label={`Remove one ${item.product.name}`}
                       >
                         <Minus className="h-4 w-4" />
@@ -192,7 +246,12 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                       
                       <Button
                         onClick={() => handleVoiceAction('add', item.product)}
-                        className="p-1 rounded-full bg-gray-100 hover:bg-gray-200 h-8 w-8"
+                        className={cn(
+                          "p-1 rounded-full h-8 w-8",
+                          isHighContrast 
+                            ? "bg-black border border-yellow-300 text-yellow-300 hover:bg-yellow-300/20" 
+                            : "bg-gray-100 hover:bg-gray-200"
+                        )}
                         aria-label={`Add one more ${item.product.name}`}
                       >
                         <Plus className="h-4 w-4" />
@@ -200,9 +259,12 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                     </div>
                     
                     <Button
-                      variant="secondary"
+                      variant={isHighContrast ? "outline" : "secondary"}
                       size="sm"
                       onClick={() => speak(`${item.quantity} ${item.product.name} at ${item.product.price.toFixed(2)} dollars each. Total ${(item.product.price * item.quantity).toFixed(2)} dollars.`)}
+                      className={cn(
+                        isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20"
+                      )}
                     >
                       Read Details
                     </Button>
@@ -211,40 +273,58 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
               ))}
             </div>
             
-            <div className="border-t p-4 bg-gray-50">
+            <div className={cn(
+              "border-t p-4",
+              isHighContrast ? "bg-black border-yellow-300" : "bg-gray-50"
+            )}>
               <div className="space-y-3 mb-5">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal:</span>
+                  <span className={isHighContrast ? "text-yellow-300/80" : "text-gray-600"}>Subtotal:</span>
                   <span>${totalPrice.toFixed(2)}</span>
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Shipping:</span>
+                  <span className={isHighContrast ? "text-yellow-300/80" : "text-gray-600"}>Shipping:</span>
                   <span>{totalPrice > 35 ? "Free" : "$5.00"}</span>
                 </div>
                 
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Estimated Tax:</span>
+                  <span className={isHighContrast ? "text-yellow-300/80" : "text-gray-600"}>Estimated Tax:</span>
                   <span>${(totalPrice * 0.08).toFixed(2)}</span>
                 </div>
                 
-                <div className="flex justify-between font-bold pt-2 border-t">
+                <div className={cn(
+                  "flex justify-between font-bold pt-2 border-t",
+                  isHighContrast && "border-yellow-300/50"
+                )}>
                   <span>Total:</span>
                   <span>${(totalPrice + (totalPrice > 35 ? 0 : 5) + (totalPrice * 0.08)).toFixed(2)}</span>
                 </div>
                 
-                <div className="text-sm text-gray-500">
+                <div className={cn(
+                  "text-sm",
+                  isHighContrast ? "text-yellow-300/70" : "text-gray-500"
+                )}>
                   Estimated delivery: {formattedDeliveryDate}
                 </div>
               </div>
               
-              <Button onClick={onCheckout} className="w-full">
+              <Button 
+                onClick={onCheckout} 
+                className={cn(
+                  "w-full",
+                  isHighContrast && "bg-yellow-300 text-black hover:bg-yellow-400"
+                )}
+              >
                 Proceed to Checkout
               </Button>
               
               <Button
                 variant="outline"
-                className="w-full mt-2"
+                className={cn(
+                  "w-full mt-2",
+                  isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20"
+                )}
                 onClick={() => speak(`Your order total is ${(totalPrice + (totalPrice > 35 ? 0 : 5) + (totalPrice * 0.08)).toFixed(2)} dollars. Estimated delivery on ${formattedDeliveryDate}. Say "checkout" to proceed with your order.`)}
               >
                 Order Summary

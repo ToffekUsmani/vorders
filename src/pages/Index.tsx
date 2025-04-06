@@ -12,6 +12,7 @@ import VoiceService from '@/services/VoiceService';
 import { processCommand } from '@/utils/commandProcessor';
 import { Search, ShoppingBag, HelpCircle, UserCircle, LogIn } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { cn } from '@/lib/utils';
 
 interface CartItem {
   product: Product;
@@ -31,6 +32,7 @@ const Index = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorRetryCount, setErrorRetryCount] = useState(0);
+  const [isHighContrast, setIsHighContrast] = useState(false);
 
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -65,7 +67,7 @@ const Index = () => {
         // VoiceService will try to restart automatically
         setTimeout(() => {
           setHasError(false);
-        }, 5000);
+        }, 3000);
       }
     });
 
@@ -79,7 +81,7 @@ const Index = () => {
       // Welcome message
       speak(user 
         ? `Welcome back ${user.name}. You can say 'help' to learn what I can do.` 
-        : "Welcome to Voice Grocer Aid. I'll help you shop with voice commands. You can say 'help' to learn what I can do."
+        : "Welcome to Voice Grocer Aid. I'll help you shop with voice commands. Say 'help' to learn what I can do."
       );
     }, 1000);
 
@@ -89,6 +91,26 @@ const Index = () => {
       }
     };
   }, [user]);
+
+  // Load high contrast preference from localStorage
+  useEffect(() => {
+    const savedContrast = localStorage.getItem('highContrast');
+    if (savedContrast === 'true') {
+      setIsHighContrast(true);
+      document.documentElement.classList.add('high-contrast');
+    }
+  }, []);
+
+  // Apply high contrast mode to the document
+  useEffect(() => {
+    if (isHighContrast) {
+      document.documentElement.classList.add('high-contrast');
+      localStorage.setItem('highContrast', 'true');
+    } else {
+      document.documentElement.classList.remove('high-contrast');
+      localStorage.setItem('highContrast', 'false');
+    }
+  }, [isHighContrast]);
 
   // Check if voice service is speaking
   useEffect(() => {
@@ -131,6 +153,12 @@ const Index = () => {
     }
   };
 
+  const toggleContrast = () => {
+    setIsHighContrast(prev => !prev);
+    speak(isHighContrast ? "High contrast mode disabled" : "High contrast mode enabled");
+    toast(isHighContrast ? "High contrast mode disabled" : "High contrast mode enabled");
+  };
+
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     const results = findProductsByName(query);
@@ -144,36 +172,36 @@ const Index = () => {
     setFilteredProducts(findProductsByCategory(categoryId));
   };
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: Product, quantity = 1) => {
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.product.id === product.id);
       
       if (existingItem) {
         return prevCart.map(item => 
           item.product.id === product.id 
-            ? { ...item, quantity: item.quantity + 1 } 
+            ? { ...item, quantity: item.quantity + quantity } 
             : item
         );
       } else {
-        return [...prevCart, { product, quantity: 1 }];
+        return [...prevCart, { product, quantity }];
       }
     });
     
-    toast.success(`Added to cart`, { description: product.name });
+    toast.success(`Added to cart`, { description: `${quantity} ${product.name}` });
   };
 
-  const handleRemoveFromCart = (productId: number) => {
+  const handleRemoveFromCart = (productId: number, quantity = 1) => {
     setCart(prevCart => {
       const existingItem = prevCart.find(item => item.product.id === productId);
       
       if (!existingItem) return prevCart;
       
-      if (existingItem.quantity === 1) {
+      if (existingItem.quantity <= quantity) {
         return prevCart.filter(item => item.product.id !== productId);
       } else {
         return prevCart.map(item => 
           item.product.id === productId 
-            ? { ...item, quantity: item.quantity - 1 } 
+            ? { ...item, quantity: item.quantity - quantity } 
             : item
         );
       }
@@ -272,20 +300,28 @@ const Index = () => {
       case 'add':
         if (result.data?.product) {
           const quantity = result.data.quantity || 1;
-          for (let i = 0; i < quantity; i++) {
-            handleAddToCart(result.data.product);
-          }
+          handleAddToCart(result.data.product, quantity);
         }
         break;
         
       case 'remove':
         if (result.data?.product) {
-          handleRemoveFromCart(result.data.product.id);
+          const quantity = result.data.quantity || 1;
+          handleRemoveFromCart(result.data.product.id, quantity);
         }
         break;
         
       case 'checkout':
         handleCheckout();
+        break;
+        
+      case 'contrast':
+        if (result.data?.contrastMode !== undefined) {
+          setIsHighContrast(result.data.contrastMode);
+        } else {
+          // Toggle if not specified
+          setIsHighContrast(prev => !prev);
+        }
         break;
         
       case 'help':
@@ -304,8 +340,14 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-primary text-white p-4">
+    <div className={cn(
+      "min-h-screen",
+      isHighContrast ? "bg-black text-yellow-300" : "bg-background"
+    )}>
+      <header className={cn(
+        "p-4",
+        isHighContrast ? "bg-black text-yellow-300 border-b border-yellow-300" : "bg-primary text-white"
+      )}>
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShoppingBag className="h-6 w-6" />
@@ -320,8 +362,9 @@ const Index = () => {
                 </span>
                 <Button 
                   size="sm" 
-                  variant="secondary" 
+                  variant={isHighContrast ? "outline" : "secondary"}
                   onClick={logout}
+                  className={cn(isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20")}
                 >
                   <UserCircle className="h-4 w-4 mr-1" /> 
                   Logout
@@ -331,8 +374,9 @@ const Index = () => {
               <div className="flex items-center gap-2">
                 <Button 
                   size="sm" 
-                  variant="secondary" 
+                  variant={isHighContrast ? "outline" : "secondary"}
                   onClick={() => navigate('/login')}
+                  className={cn(isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20")}
                 >
                   <LogIn className="h-4 w-4 mr-1" /> 
                   Login
@@ -341,7 +385,9 @@ const Index = () => {
                   size="sm" 
                   variant="outline" 
                   onClick={() => navigate('/register')}
-                  className="bg-white/10 text-white"
+                  className={cn(
+                    isHighContrast ? "bg-black text-yellow-300 border-yellow-300 hover:bg-yellow-300/20" : "bg-white/10 text-white"
+                  )}
                 >
                   Register
                 </Button>
@@ -350,8 +396,9 @@ const Index = () => {
             
             <Button 
               size="sm" 
-              variant="secondary" 
+              variant={isHighContrast ? "outline" : "secondary"}
               onClick={() => speak("Welcome to Voice Grocer Aid. You can say 'help' to learn what I can do.")}
+              className={cn(isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20")}
             >
               <HelpCircle className="h-4 w-4 mr-1" /> 
               Help
@@ -361,28 +408,45 @@ const Index = () => {
       </header>
       
       <main className="container mx-auto py-6 px-4">
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
+        <div className={cn(
+          "rounded-lg shadow-md p-4 mb-6",
+          isHighContrast ? "bg-black border border-yellow-300" : "bg-white"
+        )}>
           <div className="flex flex-col sm:flex-row items-center gap-4">
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+              <Search className={cn(
+                "absolute left-3 top-1/2 transform -translate-y-1/2",
+                isHighContrast ? "text-yellow-300" : "text-muted-foreground"
+              )} />
               <input
                 ref={searchInputRef}
                 type="text"
                 placeholder="Search for products..."
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                className="w-full pl-10 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                className={cn(
+                  "w-full pl-10 py-2 border rounded-md focus:outline-none focus:ring-2",
+                  isHighContrast 
+                    ? "bg-black text-yellow-300 border-yellow-300 focus:ring-yellow-300 placeholder-yellow-300/50" 
+                    : "focus:ring-primary"
+                )}
               />
             </div>
             
             <div className="w-full sm:w-auto">
               <Tabs value={activeCategory} onValueChange={handleCategoryChange}>
-                <TabsList className="grid grid-cols-2 sm:grid-cols-4 h-auto sm:h-10 overflow-x-auto p-1">
+                <TabsList className={cn(
+                  "grid grid-cols-2 sm:grid-cols-4 h-auto sm:h-10 overflow-x-auto p-1",
+                  isHighContrast && "bg-black border border-yellow-300"
+                )}>
                   {categories.map((category) => (
                     <TabsTrigger 
                       key={category.id} 
                       value={category.id}
-                      className="text-xs sm:text-sm"
+                      className={cn(
+                        "text-xs sm:text-sm",
+                        isHighContrast && "data-[state=active]:bg-yellow-300 data-[state=active]:text-black"
+                      )}
                     >
                       {category.name}
                     </TabsTrigger>
@@ -396,19 +460,28 @@ const Index = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-24">
           {filteredProducts.length > 0 ? (
             filteredProducts.map((product) => (
-              <ProductCard
+              <div 
                 key={product.id}
-                product={product}
-                onAdd={handleAddToCart}
-                onRemove={handleRemoveFromCart}
-                quantity={getCartItemQuantity(product.id)}
-                focused={focusedProductId === product.id}
-              />
+                className={cn(isHighContrast && "border-2 border-yellow-300 rounded-lg overflow-hidden")}
+              >
+                <ProductCard
+                  product={product}
+                  onAdd={handleAddToCart}
+                  onRemove={handleRemoveFromCart}
+                  quantity={getCartItemQuantity(product.id)}
+                  focused={focusedProductId === product.id}
+                />
+              </div>
             ))
           ) : (
-            <div className="col-span-full flex flex-col items-center justify-center py-12">
+            <div className={cn(
+              "col-span-full flex flex-col items-center justify-center py-12",
+              isHighContrast ? "text-yellow-300" : ""
+            )}>
               <p className="text-lg font-medium">No products found</p>
-              <p className="text-muted-foreground">
+              <p className={cn(
+                isHighContrast ? "text-yellow-300/70" : "text-muted-foreground"
+              )}>
                 Try a different search term or category
               </p>
             </div>
@@ -426,6 +499,8 @@ const Index = () => {
         cartCount={cart.reduce((total, item) => total + item.quantity, 0)}
         onCartClick={() => setIsCartOpen(true)}
         hasError={hasError}
+        isHighContrast={isHighContrast}
+        toggleContrast={toggleContrast}
       />
       
       <ShoppingCart
@@ -435,6 +510,7 @@ const Index = () => {
         onRemove={handleRemoveFromCart}
         onCheckout={handleCheckout}
         isOpen={isCartOpen}
+        className={isHighContrast ? "bg-black text-yellow-300 border-l border-yellow-300" : ""}
       />
     </div>
   );
