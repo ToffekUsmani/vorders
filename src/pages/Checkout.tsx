@@ -50,8 +50,8 @@ const Checkout = () => {
   
   // Calculate totals based on cart
   const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-  const shipping = subtotal > 35 ? 0 : 5.00;
-  const tax = subtotal * 0.08;
+  const shipping = subtotal > 35 ? 0 : 5;
+  const tax = Math.round(subtotal * 0.08);
   const total = subtotal + shipping + tax;
   
   useEffect(() => {
@@ -66,9 +66,12 @@ const Checkout = () => {
       }
     });
 
+    // Start listening automatically
+    startListening(null);
+
     // Welcome message
     setTimeout(() => {
-      speak("Welcome to checkout. You can say the name of any field to fill it out, or 'pay now' to complete your purchase.");
+      speak("Welcome to checkout. You can say the card name, card number, expiry date, CVV or address to fill out those fields, or say 'pay now' to complete your purchase.");
     }, 1000);
 
     return () => {
@@ -109,32 +112,68 @@ const Checkout = () => {
   const handleVoiceResult = (transcript: string) => {
     const lowerTranscript = transcript.toLowerCase();
     
-    // Commands
-    if (lowerTranscript.includes('card number')) {
-      setCurrentField('cardNumber');
-      speak("Please say your card number");
-      return;
-    }
-    
-    if (lowerTranscript.includes('name on card') || lowerTranscript.includes('card name')) {
+    // Direct card name detection
+    if (lowerTranscript.match(/card name|name on card|name is/i)) {
+      const nameMatch = transcript.match(/(?:card name|name on card|name is)\s+(.*?)(?:\.|$)/i);
+      if (nameMatch && nameMatch[1]) {
+        setCardName(nameMatch[1].trim());
+        speak(`Card name set to ${nameMatch[1].trim()}`);
+        return;
+      }
       setCurrentField('cardName');
       speak("Please say the name on your card");
       return;
     }
     
-    if (lowerTranscript.includes('expiry') || lowerTranscript.includes('expiration')) {
+    // Direct card number detection
+    if (lowerTranscript.match(/card number|number is/i)) {
+      const numberMatch = transcript.match(/(?:card number|number is)\s+([0-9\s]+)/i);
+      if (numberMatch && numberMatch[1]) {
+        const cleanNumber = numberMatch[1].replace(/\D/g, '');
+        setCardNumber(cleanNumber);
+        speak("Card number has been set");
+        return;
+      }
+      setCurrentField('cardNumber');
+      speak("Please say your card number");
+      return;
+    }
+    
+    // Direct expiry detection
+    if (lowerTranscript.match(/expiry|expiration|expires/i)) {
+      const expiryMatch = transcript.match(/(?:expiry|expiration|expires).*?(\d{1,2}[\s/]+\d{2,4}|\w+ \d{4}|\w+ \d{2})/i);
+      if (expiryMatch && expiryMatch[1]) {
+        let formattedDate = processExpiryDate(expiryMatch[1]);
+        setExpiryDate(formattedDate);
+        speak(`Expiry date set to ${formattedDate}`);
+        return;
+      }
       setCurrentField('expiryDate');
       speak("Please say your card's expiration date");
       return;
     }
     
-    if (lowerTranscript.includes('cvv') || lowerTranscript.includes('security code') || lowerTranscript.includes('cvc')) {
+    // Direct CVV detection
+    if (lowerTranscript.match(/cvv|security code|cvc/i)) {
+      const cvvMatch = transcript.match(/(?:cvv|security code|cvc).*?(\d{3,4})/i);
+      if (cvvMatch && cvvMatch[1]) {
+        setCvv(cvvMatch[1]);
+        speak("CVV has been set");
+        return;
+      }
       setCurrentField('cvv');
       speak("Please say your card's security code");
       return;
     }
     
-    if (lowerTranscript.includes('address') || lowerTranscript.includes('delivery')) {
+    // Direct address detection
+    if (lowerTranscript.match(/address|delivery|shipping/i) && !lowerTranscript.includes("is set")) {
+      const addressMatch = transcript.match(/(?:address|delivery|shipping).*(is|at)\s+(.*?)(?:\.|$)/i);
+      if (addressMatch && addressMatch[2]) {
+        setAddress(addressMatch[2].trim());
+        speak(`Address set to ${addressMatch[2].trim()}`);
+        return;
+      }
       setCurrentField('address');
       speak("Please say your delivery address");
       return;
@@ -156,7 +195,7 @@ const Checkout = () => {
       return;
     }
     
-    // Field input
+    // Field input based on current field
     if (currentField === 'cardNumber') {
       // Format as card number (remove spaces and non-digits)
       const cleanedValue = transcript.replace(/\D/g, '');
@@ -166,26 +205,8 @@ const Checkout = () => {
       setCardName(transcript);
       speak(`Card name set to ${transcript}`);
     } else if (currentField === 'expiryDate') {
-      // Try to extract month/year format
-      let formattedDate = transcript;
-      
-      // Replace common words
-      formattedDate = formattedDate.replace(/\s+/g, '');
-      formattedDate = formattedDate.replace(/slash/g, '/');
-      
-      // If user said "March 2025" or similar, convert to MM/YY
-      const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-      months.forEach((month, index) => {
-        if (transcript.toLowerCase().includes(month)) {
-          const monthNumber = (index + 1).toString().padStart(2, '0');
-          const yearMatch = transcript.match(/20\d\d/);
-          const year = yearMatch ? yearMatch[0].slice(-2) : '';
-          if (year) {
-            formattedDate = `${monthNumber}/${year}`;
-          }
-        }
-      });
-      
+      // Process expiry date
+      const formattedDate = processExpiryDate(transcript);
       setExpiryDate(formattedDate);
       speak(`Expiry date set to ${formattedDate}`);
     } else if (currentField === 'cvv') {
@@ -196,7 +217,66 @@ const Checkout = () => {
     } else if (currentField === 'address') {
       setAddress(transcript);
       speak(`Address set to ${transcript}`);
+    } else {
+      // Try to detect what the user is saying without a specific field set
+      if (transcript.match(/\d{12,16}/)) {
+        // Looks like a card number
+        const cleanedValue = transcript.match(/\d{12,16}/)[0];
+        setCardNumber(cleanedValue);
+        speak("Card number has been set");
+      } else if (transcript.match(/\d{1,2}[\s/]+\d{2,4}/)) {
+        // Looks like an expiry date
+        const formattedDate = processExpiryDate(transcript);
+        setExpiryDate(formattedDate);
+        speak(`Expiry date set to ${formattedDate}`);
+      } else if (transcript.match(/\b\d{3,4}\b/)) {
+        // Looks like a CVV
+        const cleanedValue = transcript.match(/\b\d{3,4}\b/)[0];
+        setCvv(cleanedValue);
+        speak("CVV has been set");
+      } else if (transcript.length > 10 && (transcript.includes("street") || transcript.includes("avenue") || transcript.includes("road"))) {
+        // Likely an address
+        setAddress(transcript);
+        speak(`Address set to ${transcript}`);
+      } else if (transcript.includes(" ") && !transcript.match(/\d/)) {
+        // Likely a name if it has spaces and no digits
+        setCardName(transcript);
+        speak(`Card name set to ${transcript}`);
+      }
     }
+  };
+
+  // Helper function to process different formats of expiry dates
+  const processExpiryDate = (input: string): string => {
+    let formattedDate = input;
+    
+    // Replace common words
+    formattedDate = formattedDate.replace(/\s+/g, ' ');
+    formattedDate = formattedDate.replace(/slash/g, '/');
+    
+    // If user said "March 2025" or similar, convert to MM/YY
+    const months = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+    months.forEach((month, index) => {
+      if (input.toLowerCase().includes(month)) {
+        const monthNumber = (index + 1).toString().padStart(2, '0');
+        const yearMatch = input.match(/20\d\d/);
+        const year = yearMatch ? yearMatch[0].slice(-2) : '';
+        if (year) {
+          formattedDate = `${monthNumber}/${year}`;
+        }
+      }
+    });
+    
+    // Handle numeric formats like "01 25" or "01/25"
+    const numericMatch = input.match(/(\d{1,2})\s*[/\s]\s*(\d{2,4})/);
+    if (numericMatch) {
+      const month = parseInt(numericMatch[1]).toString().padStart(2, '0');
+      let year = numericMatch[2];
+      if (year.length === 4) year = year.slice(-2);
+      formattedDate = `${month}/${year}`;
+    }
+    
+    return formattedDate;
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -427,7 +507,7 @@ const Checkout = () => {
                   {cartItems.map((item) => (
                     <div key={item.product.id} className="flex justify-between text-sm border-b pb-2">
                       <span>{item.quantity} × {item.product.name}</span>
-                      <span>${(item.product.price * item.quantity).toFixed(2)}</span>
+                      <span>${(item.product.price * item.quantity)}</span>
                     </div>
                   ))}
                 </div>
@@ -436,19 +516,19 @@ const Checkout = () => {
                 <div className="space-y-2 pt-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>${subtotal}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Shipping</span>
-                    <span>{shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}</span>
+                    <span>{shipping === 0 ? 'Free' : `$${shipping}`}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tax</span>
-                    <span>${tax.toFixed(2)}</span>
+                    <span>${tax}</span>
                   </div>
                   <div className="flex justify-between font-bold pt-2 border-t">
                     <span>Total</span>
-                    <span>${total.toFixed(2)}</span>
+                    <span>${Math.round(total)}</span>
                   </div>
                 </div>
               </div>

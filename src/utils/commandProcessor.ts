@@ -4,7 +4,7 @@ import { Product } from '../components/ProductCard';
 
 export interface CommandResult {
   command: string;
-  action: 'search' | 'add' | 'remove' | 'checkout' | 'help' | 'unknown' | 'contrast' | 'describe' | 'emergency';
+  action: 'search' | 'add' | 'remove' | 'checkout' | 'help' | 'unknown' | 'contrast' | 'describe' | 'emergency' | 'cart';
   data?: {
     query?: string;
     product?: Product;
@@ -29,6 +29,21 @@ export const processCommand = (
       command: normalizedCommand,
       action: 'emergency',
       response: "Calling helpline number. Please stay on the line for immediate assistance."
+    };
+  }
+
+  // Cart command
+  if (normalizedCommand.includes('cart') || 
+      normalizedCommand.includes('basket') ||
+      normalizedCommand.includes('shopping bag') ||
+      normalizedCommand.match(/show (my )?(cart|basket)/i) ||
+      normalizedCommand.match(/open (my )?(cart|basket)/i) ||
+      normalizedCommand.match(/go to (my )?(cart|basket)/i)) {
+    
+    return {
+      command: normalizedCommand,
+      action: 'cart',
+      response: "Opening your shopping cart."
     };
   }
 
@@ -68,7 +83,7 @@ export const processCommand = (
           command: normalizedCommand,
           action: 'describe',
           data: { description: targetProduct },
-          response: `${targetProduct.name}: ${targetProduct.description} Price: $${targetProduct.price.toFixed(2)}.`
+          response: `${targetProduct.name}: ${targetProduct.description} Price: $${targetProduct.price}.`
         };
       }
     }
@@ -204,6 +219,7 @@ export const processCommand = (
         "Describe apples" to hear product details,
         "Add 3 apples to my cart", 
         "Remove bananas from my cart",
+        "Go to cart" to open your shopping cart,
         "Toggle high contrast mode" for better visibility,
         "Emergency" to call our helpline immediately, or
         "Checkout" to complete your purchase.`
@@ -366,8 +382,24 @@ function extractProductInfo(
     }
   }
   
-  // Fuzzy matching - if no direct match found
+  // Fuzzy matching for apple and other products with generic names
   if (cleanedCommand.length > 0) {
+    // Priority for common items with simple names
+    const commonItems = ["apple", "banana", "milk", "bread", "egg", "cheese", "yogurt"];
+    for (const item of commonItems) {
+      if (cleanedCommand.includes(item)) {
+        const foundProduct = availableProducts.find(p => 
+          p.name.toLowerCase() === item || 
+          p.name.toLowerCase() === item + "s" ||
+          p.name.toLowerCase().includes(item)
+        );
+        if (foundProduct) {
+          console.log("Found common product:", foundProduct.name);
+          return { product: foundProduct, quantity };
+        }
+      }
+    }
+  
     // Try to match any product that has at least part of its name in the command
     for (const product of availableProducts) {
       const productName = product.name.toLowerCase();

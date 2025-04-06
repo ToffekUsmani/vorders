@@ -39,15 +39,19 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
     if (isOpen && items.length > 0) {
       // Create voice summary when cart opens
       const totalPrice = calculateTotalPrice();
-      const subtotal = totalPrice;
       const shipping = totalPrice > 35 ? 0 : 5;
       const tax = totalPrice * 0.08;
-      const finalTotal = subtotal + shipping + tax;
+      const finalTotal = Math.round(totalPrice + shipping + tax);
       
-      const summary = `Your cart has ${items.length} types of items with a total of ${items.reduce((sum, item) => sum + item.quantity, 0)} products. 
-                       The subtotal is $${subtotal.toFixed(2)}, shipping is ${shipping === 0 ? 'free' : '$' + shipping.toFixed(2)},
-                       and tax is $${tax.toFixed(2)}. Your total cost is $${finalTotal.toFixed(2)}. 
-                       ${items.map(item => `${item.quantity} ${item.product.name} at $${item.product.price.toFixed(2)} each.`).join(' ')}
+      // First announce each item with its details
+      const itemDetailsList = items.map(item => 
+        `${item.quantity} ${item.product.name} at $${item.product.price} each. Item total: $${item.quantity * item.product.price}.`
+      ).join(' ');
+      
+      // Then announce the summary
+      const summary = `${itemDetailsList} Your cart has ${items.length} types of items. 
+                       The subtotal is $${totalPrice}, shipping is ${shipping === 0 ? 'free' : '$' + shipping},
+                       and tax is $${Math.round(tax)}. Your total cost is $${finalTotal}. 
                        Say "checkout" to proceed or "continue shopping" to go back.`;
       speak(summary);
     } else if (isOpen && items.length === 0) {
@@ -104,7 +108,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
   
   const totalPrice = calculateTotalPrice();
   const shipping = totalPrice > 35 ? 0 : 5;
-  const tax = totalPrice * 0.08;
+  const tax = Math.round(totalPrice * 0.08);
   const finalTotal = totalPrice + shipping + tax;
   const estimatedDeliveryDate = new Date();
   estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 2);
@@ -115,8 +119,11 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex justify-end">
-      <div className={cn(`w-full max-w-md h-full overflow-y-auto`, className)}>
+    <div className="fixed inset-0 bg-black/70 z-50 flex justify-end">
+      <div className={cn(
+        `w-full max-w-md h-full overflow-y-auto`,
+        isHighContrast ? "bg-black" : "bg-white"
+      )}>
         <div className={cn(
           "p-4 border-b flex items-center justify-between",
           isHighContrast ? "bg-black text-yellow-300 border-yellow-300" : "bg-primary text-white"
@@ -193,7 +200,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                     "p-4 shadow-sm",
                     isHighContrast 
                       ? "border border-yellow-300 rounded-lg" 
-                      : "border rounded-lg"
+                      : "border rounded-lg bg-white"
                   )}
                 >
                   <div className="flex items-start justify-between mb-3">
@@ -205,17 +212,21 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                           "w-16 h-16 object-cover mr-4",
                           isHighContrast ? "border border-yellow-300" : "rounded"
                         )}
+                        onError={(e) => {
+                          // Fallback for broken images
+                          e.currentTarget.src = "https://images.unsplash.com/photo-1598170845058-32b9d6a5da37";
+                        }}
                       />
                       <div>
                         <h3 className="font-medium">{item.product.name}</h3>
                         <p className={cn(
                           isHighContrast ? "text-yellow-300/80" : "text-gray-600",
                           "text-sm"
-                        )}>${item.product.price.toFixed(2)} each</p>
+                        )}>${item.product.price} each</p>
                         <p className={cn(
                           isHighContrast ? "text-yellow-300" : "text-primary",
                           "font-medium"
-                        )}>Total: ${(item.product.price * item.quantity).toFixed(2)}</p>
+                        )}>Total: ${(item.product.price * item.quantity)}</p>
                       </div>
                     </div>
                     
@@ -270,7 +281,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                     <Button
                       variant={isHighContrast ? "outline" : "secondary"}
                       size="sm"
-                      onClick={() => speak(`${item.quantity} ${item.product.name} at $${item.product.price.toFixed(2)} each. Total for this item: $${(item.product.price * item.quantity).toFixed(2)} dollars.`)}
+                      onClick={() => speak(`${item.quantity} ${item.product.name} at $${item.product.price} each. Total for this item: $${(item.product.price * item.quantity)} dollars.`)}
                       className={cn(
                         isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20"
                       )}
@@ -289,17 +300,17 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
               <div className="space-y-3 mb-5">
                 <div className="flex justify-between">
                   <span className={isHighContrast ? "text-yellow-300/80" : "text-gray-600"}>Subtotal:</span>
-                  <span>${totalPrice.toFixed(2)}</span>
+                  <span>${totalPrice}</span>
                 </div>
                 
                 <div className="flex justify-between">
                   <span className={isHighContrast ? "text-yellow-300/80" : "text-gray-600"}>Shipping:</span>
-                  <span>{shipping === 0 ? "Free" : `$${shipping.toFixed(2)}`}</span>
+                  <span>{shipping === 0 ? "Free" : `$${shipping}`}</span>
                 </div>
                 
                 <div className="flex justify-between">
                   <span className={isHighContrast ? "text-yellow-300/80" : "text-gray-600"}>Estimated Tax:</span>
-                  <span>${tax.toFixed(2)}</span>
+                  <span>${tax}</span>
                 </div>
                 
                 <div className={cn(
@@ -307,7 +318,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                   isHighContrast && "border-yellow-300/50"
                 )}>
                   <span>Total:</span>
-                  <span>${finalTotal.toFixed(2)}</span>
+                  <span>${Math.round(finalTotal)}</span>
                 </div>
                 
                 <div className={cn(
@@ -335,10 +346,10 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                   isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20"
                 )}
                 onClick={() => speak(`Your order summary:
-                  Subtotal: $${totalPrice.toFixed(2)}.
-                  Shipping: ${shipping === 0 ? 'free' : '$' + shipping.toFixed(2)}.
-                  Tax: $${tax.toFixed(2)}.
-                  Final total: $${finalTotal.toFixed(2)}.
+                  Subtotal: $${totalPrice}.
+                  Shipping: ${shipping === 0 ? 'free' : '$' + shipping}.
+                  Tax: $${tax}.
+                  Final total: $${Math.round(finalTotal)}.
                   Estimated delivery on ${formattedDeliveryDate}.
                   Say "checkout" to proceed with your order.`)}
               >
