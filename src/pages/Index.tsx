@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { toast } from "sonner";
 import { useNavigate, Link } from 'react-router-dom';
@@ -9,7 +10,7 @@ import ShoppingCart from '@/components/ShoppingCart';
 import { products, categories, findProductsByName, findProductsByCategory } from '@/data/products';
 import VoiceService from '@/services/VoiceService';
 import { processCommand } from '@/utils/commandProcessor';
-import { Search, ShoppingBag, HelpCircle, UserCircle, LogIn } from 'lucide-react';
+import { Search, ShoppingBag, HelpCircle, UserCircle, LogIn, PhoneCall } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +33,7 @@ const Index = () => {
   const [hasError, setHasError] = useState(false);
   const [errorRetryCount, setErrorRetryCount] = useState(0);
   const [isHighContrast, setIsHighContrast] = useState(false);
+  const [showingEmergency, setShowingEmergency] = useState(false);
 
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -46,6 +48,11 @@ const Index = () => {
       } catch (e) {
         console.error("Error loading cart from localStorage", e);
       }
+    }
+    
+    const savedContrast = localStorage.getItem('highContrast');
+    if (savedContrast === 'true') {
+      setIsHighContrast(true);
     }
   }, []);
 
@@ -102,14 +109,6 @@ const Index = () => {
       }
     };
   }, [user]);
-
-  useEffect(() => {
-    const savedContrast = localStorage.getItem('highContrast');
-    if (savedContrast === 'true') {
-      setIsHighContrast(true);
-      document.documentElement.classList.add('high-contrast');
-    }
-  }, []);
 
   useEffect(() => {
     if (isHighContrast) {
@@ -233,6 +232,31 @@ const Index = () => {
     speak('Taking you to checkout.');
     navigate('/checkout', { state: { cartItems: cart } });
   };
+  
+  const handleEmergencyCall = () => {
+    speak("Calling helpline number. Please stay on the line for immediate assistance.");
+    toast.success("Emergency helpline call initiated", {
+      description: "Our support team will assist you shortly.",
+      duration: 5000,
+    });
+    
+    setShowingEmergency(true);
+    
+    // This would connect to a real helpline in a production app
+    // For now, we'll just simulate the call with a toast and close it after a few seconds
+    setTimeout(() => {
+      setShowingEmergency(false);
+    }, 5000);
+  };
+  
+  const describeProduct = (product: Product) => {
+    const description = `${product.name}: ${product.description} It costs $${product.price.toFixed(2)}.`;
+    speak(description);
+    toast.info(`Product Description`, { 
+      description: description,
+      duration: 5000 
+    });
+  };
 
   const handleVoiceResult = (transcript: string) => {
     if (hasError) {
@@ -285,6 +309,12 @@ const Index = () => {
       return;
     }
     
+    // Handle emergency call request
+    if (lowerTranscript.includes('emergency') || lowerTranscript.includes('help me now')) {
+      handleEmergencyCall();
+      return;
+    }
+    
     const result = processCommand(transcript, products);
     console.log('Command result:', result);
     
@@ -323,6 +353,19 @@ const Index = () => {
         } else {
           setIsHighContrast(prev => !prev);
         }
+        break;
+        
+      case 'describe':
+        if (result.data?.description) {
+          describeProduct(result.data.description);
+          // Focus the product
+          setFocusedProductId(result.data.description.id);
+          setTimeout(() => setFocusedProductId(null), 3000);
+        }
+        break;
+        
+      case 'emergency':
+        handleEmergencyCall();
         break;
         
       case 'help':
@@ -403,6 +446,19 @@ const Index = () => {
               <HelpCircle className="h-4 w-4 mr-1" /> 
               Help
             </Button>
+            
+            <Button 
+              size="sm" 
+              variant="destructive"
+              onClick={handleEmergencyCall}
+              className={cn(
+                "flex items-center gap-1",
+                isHighContrast && "bg-yellow-300 text-black hover:bg-yellow-400"
+              )}
+            >
+              <PhoneCall className="h-4 w-4 mr-1" /> 
+              Emergency
+            </Button>
           </div>
         </div>
       </header>
@@ -462,7 +518,11 @@ const Index = () => {
             filteredProducts.map((product) => (
               <div 
                 key={product.id}
-                className={cn(isHighContrast && "border-2 border-yellow-300 rounded-lg overflow-hidden")}
+                className={cn(
+                  isHighContrast && "border-2 border-yellow-300 rounded-lg overflow-hidden",
+                  focusedProductId === product.id && "ring-4 ring-offset-2",
+                  focusedProductId === product.id && (isHighContrast ? "ring-yellow-300" : "ring-primary")
+                )}
               >
                 <ProductCard
                   product={product}
@@ -471,6 +531,17 @@ const Index = () => {
                   quantity={getCartItemQuantity(product.id)}
                   focused={focusedProductId === product.id}
                 />
+                <Button
+                  onClick={() => describeProduct(product)}
+                  variant={isHighContrast ? "outline" : "secondary"}
+                  size="sm"
+                  className={cn(
+                    "w-full rounded-t-none",
+                    isHighContrast && "bg-black text-yellow-300 border-yellow-300 hover:bg-yellow-300/20"
+                  )}
+                >
+                  Describe
+                </Button>
               </div>
             ))
           ) : (
@@ -488,6 +559,46 @@ const Index = () => {
           )}
         </div>
       </main>
+      
+      {showingEmergency && (
+        <div className={cn(
+          "fixed inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center p-4",
+          isHighContrast && "bg-black/95"
+        )}>
+          <div className={cn(
+            "bg-white p-6 rounded-lg max-w-md w-full text-center",
+            isHighContrast && "bg-black border-2 border-yellow-300"
+          )}>
+            <PhoneCall className={cn(
+              "mx-auto mb-4 h-16 w-16 animate-pulse",
+              isHighContrast ? "text-yellow-300" : "text-red-500"
+            )} />
+            <h2 className={cn(
+              "text-2xl font-bold mb-2",
+              isHighContrast && "text-yellow-300"
+            )}>
+              Emergency Call
+            </h2>
+            <p className={cn(
+              "mb-4",
+              isHighContrast && "text-yellow-300"
+            )}>
+              Connecting to customer support...
+            </p>
+            <div className="animate-pulse flex justify-center gap-2">
+              {[1, 2, 3].map(dot => (
+                <div 
+                  key={dot}
+                  className={cn(
+                    "h-3 w-3 rounded-full",
+                    isHighContrast ? "bg-yellow-300" : "bg-red-500"
+                  )}
+                ></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       
       <VoiceAssistant
         isListening={isListening}

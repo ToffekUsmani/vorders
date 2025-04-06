@@ -39,9 +39,15 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
     if (isOpen && items.length > 0) {
       // Create voice summary when cart opens
       const totalPrice = calculateTotalPrice();
+      const subtotal = totalPrice;
+      const shipping = totalPrice > 35 ? 0 : 5;
+      const tax = totalPrice * 0.08;
+      const finalTotal = subtotal + shipping + tax;
+      
       const summary = `Your cart has ${items.length} types of items with a total of ${items.reduce((sum, item) => sum + item.quantity, 0)} products. 
-                       The total cost is ${totalPrice.toFixed(2)} dollars. 
-                       ${items.map(item => `${item.quantity} ${item.product.name} at ${item.product.price.toFixed(2)} dollars each.`).join(' ')}
+                       The subtotal is $${subtotal.toFixed(2)}, shipping is ${shipping === 0 ? 'free' : '$' + shipping.toFixed(2)},
+                       and tax is $${tax.toFixed(2)}. Your total cost is $${finalTotal.toFixed(2)}. 
+                       ${items.map(item => `${item.quantity} ${item.product.name} at $${item.product.price.toFixed(2)} each.`).join(' ')}
                        Say "checkout" to proceed or "continue shopping" to go back.`;
       speak(summary);
     } else if (isOpen && items.length === 0) {
@@ -97,6 +103,9 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
   if (!isOpen) return null;
   
   const totalPrice = calculateTotalPrice();
+  const shipping = totalPrice > 35 ? 0 : 5;
+  const tax = totalPrice * 0.08;
+  const finalTotal = totalPrice + shipping + tax;
   const estimatedDeliveryDate = new Date();
   estimatedDeliveryDate.setDate(estimatedDeliveryDate.getDate() + 2);
   const formattedDeliveryDate = estimatedDeliveryDate.toLocaleDateString('en-US', {
@@ -261,7 +270,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                     <Button
                       variant={isHighContrast ? "outline" : "secondary"}
                       size="sm"
-                      onClick={() => speak(`${item.quantity} ${item.product.name} at ${item.product.price.toFixed(2)} dollars each. Total ${(item.product.price * item.quantity).toFixed(2)} dollars.`)}
+                      onClick={() => speak(`${item.quantity} ${item.product.name} at $${item.product.price.toFixed(2)} each. Total for this item: $${(item.product.price * item.quantity).toFixed(2)} dollars.`)}
                       className={cn(
                         isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20"
                       )}
@@ -285,12 +294,12 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                 
                 <div className="flex justify-between">
                   <span className={isHighContrast ? "text-yellow-300/80" : "text-gray-600"}>Shipping:</span>
-                  <span>{totalPrice > 35 ? "Free" : "$5.00"}</span>
+                  <span>{shipping === 0 ? "Free" : `$${shipping.toFixed(2)}`}</span>
                 </div>
                 
                 <div className="flex justify-between">
                   <span className={isHighContrast ? "text-yellow-300/80" : "text-gray-600"}>Estimated Tax:</span>
-                  <span>${(totalPrice * 0.08).toFixed(2)}</span>
+                  <span>${tax.toFixed(2)}</span>
                 </div>
                 
                 <div className={cn(
@@ -298,7 +307,7 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                   isHighContrast && "border-yellow-300/50"
                 )}>
                   <span>Total:</span>
-                  <span>${(totalPrice + (totalPrice > 35 ? 0 : 5) + (totalPrice * 0.08)).toFixed(2)}</span>
+                  <span>${finalTotal.toFixed(2)}</span>
                 </div>
                 
                 <div className={cn(
@@ -325,7 +334,13 @@ const ShoppingCart: React.FC<ShoppingCartProps> = ({
                   "w-full mt-2",
                   isHighContrast && "border-yellow-300 text-yellow-300 hover:bg-yellow-300/20"
                 )}
-                onClick={() => speak(`Your order total is ${(totalPrice + (totalPrice > 35 ? 0 : 5) + (totalPrice * 0.08)).toFixed(2)} dollars. Estimated delivery on ${formattedDeliveryDate}. Say "checkout" to proceed with your order.`)}
+                onClick={() => speak(`Your order summary:
+                  Subtotal: $${totalPrice.toFixed(2)}.
+                  Shipping: ${shipping === 0 ? 'free' : '$' + shipping.toFixed(2)}.
+                  Tax: $${tax.toFixed(2)}.
+                  Final total: $${finalTotal.toFixed(2)}.
+                  Estimated delivery on ${formattedDeliveryDate}.
+                  Say "checkout" to proceed with your order.`)}
               >
                 Order Summary
               </Button>

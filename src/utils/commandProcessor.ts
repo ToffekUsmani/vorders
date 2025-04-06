@@ -4,13 +4,14 @@ import { Product } from '../components/ProductCard';
 
 export interface CommandResult {
   command: string;
-  action: 'search' | 'add' | 'remove' | 'checkout' | 'help' | 'unknown' | 'contrast';
+  action: 'search' | 'add' | 'remove' | 'checkout' | 'help' | 'unknown' | 'contrast' | 'describe' | 'emergency';
   data?: {
     query?: string;
     product?: Product;
     quantity?: number;
     category?: string;
     contrastMode?: boolean;
+    description?: Product;
   };
   response: string;
 }
@@ -21,6 +22,15 @@ export const processCommand = (
 ): CommandResult => {
   const normalizedCommand = command.toLowerCase().trim();
   console.log("Processing command:", normalizedCommand);
+
+  // Emergency helpline handling
+  if (normalizedCommand.includes('emergency')) {
+    return {
+      command: normalizedCommand,
+      action: 'emergency',
+      response: "Calling helpline number. Please stay on the line for immediate assistance."
+    };
+  }
 
   // Contrast mode toggle
   if (normalizedCommand.includes('high contrast') || 
@@ -36,6 +46,38 @@ export const processCommand = (
       action: 'contrast',
       data: { contrastMode: enableContrast },
       response: enableContrast ? "High contrast mode enabled." : "High contrast mode disabled."
+    };
+  }
+
+  // Product description requests
+  if (normalizedCommand.includes('describe') || 
+      normalizedCommand.includes('tell me about') || 
+      normalizedCommand.includes('what is') || 
+      normalizedCommand.includes('details of')) {
+    
+    // Extract potential product name from the command
+    let productName = extractProductNameFromCommand(normalizedCommand);
+    console.log("Looking for product description:", productName);
+    
+    if (productName) {
+      // Find the product in our available products
+      const targetProduct = findBestMatchingProduct(productName, products);
+      
+      if (targetProduct) {
+        return {
+          command: normalizedCommand,
+          action: 'describe',
+          data: { description: targetProduct },
+          response: `${targetProduct.name}: ${targetProduct.description} Price: $${targetProduct.price.toFixed(2)}.`
+        };
+      }
+    }
+    
+    // If we got here, we couldn't find the product
+    return {
+      command: normalizedCommand,
+      action: 'unknown',
+      response: "I couldn't find information about that product. Try searching for it first."
     };
   }
 
@@ -151,7 +193,7 @@ export const processCommand = (
     };
   }
 
-  // Help commands - simplified to just "help"
+  // Help commands - enhanced with new features
   if (normalizedCommand.includes('help')) {
     return {
       command: normalizedCommand,
@@ -159,9 +201,11 @@ export const processCommand = (
       response: `You can say things like: 
         "Search for apples", 
         "Show me dairy products", 
+        "Describe apples" to hear product details,
         "Add 3 apples to my cart", 
         "Remove bananas from my cart",
-        "Toggle high contrast mode", or
+        "Toggle high contrast mode" for better visibility,
+        "Emergency" to call our helpline immediately, or
         "Checkout" to complete your purchase.`
     };
   }
@@ -173,6 +217,72 @@ export const processCommand = (
     response: "I didn't understand that command. Try saying 'help' to see what I can do."
   };
 };
+
+// Helper function to extract product name from description commands
+function extractProductNameFromCommand(command: string): string {
+  const patterns = [
+    /describe\s+(?:the\s+)?(.+?)(?:\s+to me|\s+for me|$)/i,
+    /tell me about\s+(?:the\s+)?(.+?)(?:\s+please|\s+now|\?|$)/i,
+    /what is\s+(?:a\s+)?(?:the\s+)?(.+?)(?:\?|$)/i,
+    /details of\s+(?:the\s+)?(.+?)(?:\s+please|\s+now|\?|$)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const match = command.match(pattern);
+    if (match && match[1]) {
+      // Clean up the product name by removing common filler words
+      let name = match[1].trim();
+      const fillerWords = ['a', 'an', 'the', 'this', 'these', 'those', 'please', 'some'];
+      fillerWords.forEach(word => {
+        name = name.replace(new RegExp(`\\b${word}\\b`, 'gi'), '');
+      });
+      return name.trim();
+    }
+  }
+  
+  // If no specific pattern matched, extract the part after the key phrases
+  const keyPhrases = ['describe', 'tell me about', 'what is', 'details of'];
+  for (const phrase of keyPhrases) {
+    if (command.includes(phrase)) {
+      const afterPhrase = command.substring(command.indexOf(phrase) + phrase.length);
+      return afterPhrase.trim();
+    }
+  }
+  
+  return '';
+}
+
+// Improved function to find the best matching product for description
+function findBestMatchingProduct(productName: string, products: Product[]): Product | undefined {
+  // Direct case-insensitive match
+  const directMatch = products.find(p => 
+    p.name.toLowerCase() === productName.toLowerCase()
+  );
+  
+  if (directMatch) return directMatch;
+  
+  // Partial match
+  const partialMatch = products.find(p => 
+    p.name.toLowerCase().includes(productName.toLowerCase()) || 
+    productName.toLowerCase().includes(p.name.toLowerCase())
+  );
+  
+  if (partialMatch) return partialMatch;
+  
+  // Fuzzy match using Levenshtein distance
+  let bestMatch = null;
+  let bestScore = Number.MAX_SAFE_INTEGER;
+  
+  for (const product of products) {
+    const distance = levenshteinDistance(product.name.toLowerCase(), productName.toLowerCase());
+    if (distance < bestScore && distance < 5) { // Maximum tolerance of 5 edits
+      bestScore = distance;
+      bestMatch = product;
+    }
+  }
+  
+  return bestMatch || undefined;
+}
 
 function extractSearchQuery(command: string): string | null {
   const searchPatterns = [

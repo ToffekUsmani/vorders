@@ -64,7 +64,7 @@ export const products: Product[] = [
     price: 9.99,
     image: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791',
     category: 'meat',
-    description: 'Free-range organic chicken breast, perfect for healthy meals.'
+    description: 'Free-range chicken breast, perfect for healthy meals.'
   },
   {
     id: 9,
